@@ -1,4 +1,4 @@
-name: Update activity graph
+name: Update GitHub stats
 
 on:
   schedule:
@@ -20,6 +20,9 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_STATS_TOKEN }}
+      GH_USERNAME: Josh012006
     steps:
       - uses: actions/checkout@v4
 
@@ -32,16 +35,23 @@ jobs:
         if: github.event_name == 'repository_dispatch'
         run: sleep 60
 
-      - name: Generate graph
+      - name: Commit activity graph
         run: node scripts/generate-graph.mjs
         env:
-          GH_TOKEN: ${{ secrets.GH_STATS_TOKEN }}
-          GH_USERNAME: Josh012006
           DAYS: 30
+
+      - name: Streak and stats
+        run: node scripts/generate-stats.mjs
+
+      - name: Languages
+        run: node scripts/generate-languages.mjs
+        env:
+          TOP_LANGS: 8
+          EXCLUDE_LANGS: ""     # e.g. "Jupyter Notebook,HTML" (comma-separated)
 
       - name: Commit if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add dist/activity-graph.svg
-          git diff --cached --quiet || (git commit -m "chore: update activity graph" && git push)
+          git add dist/*.svg
+          git diff --cached --quiet || (git commit -m "chore: update stats" && git push)

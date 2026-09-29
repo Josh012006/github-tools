@@ -1,0 +1,47 @@
+name: Update activity graph
+
+on:
+  schedule:
+    - cron: "0 * * * *"        # every hour, so it also rolls over on each new day
+  push:
+    branches: [main]
+    paths-ignore: ["dist/**"]
+  repository_dispatch:
+    types: [commit-pushed]     # triggered from your other repos (optional)
+  workflow_dispatch:           # manual run button
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-graph
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # GitHub's contribution data takes a moment to register a new commit
+      - name: Wait for contribution data
+        if: github.event_name == 'repository_dispatch'
+        run: sleep 60
+
+      - name: Generate graph
+        run: node scripts/generate-graph.mjs
+        env:
+          GH_TOKEN: ${{ secrets.GH_STATS_TOKEN }}
+          GH_USERNAME: Josh012006
+          DAYS: 30
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist/activity-graph.svg
+          git diff --cached --quiet || (git commit -m "chore: update activity graph" && git push)
